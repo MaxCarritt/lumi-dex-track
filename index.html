@@ -189,6 +189,7 @@ img{display:block}
 .set .r{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.7rem .5rem;border-radius:.7rem}
 .set .r b{display:block}.set .r small{color:var(--dim);font-weight:600}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.tick:disabled{opacity:1;position:relative;cursor:default}.tick:disabled::after{content:"🔒";position:absolute;right:-.25rem;bottom:-.2rem;font-size:.65rem}
 </style>
 </head>
 <body>
@@ -202,6 +203,7 @@ img{display:block}
   <button data-v="moves"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Moves</button>
 </div>
 <div id="toast" class="toast"></div>
+<script src="save-sync.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

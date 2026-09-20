@@ -1,0 +1,13 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'com.lumidex.track'
+    compileSdk 35
+    defaultConfig { applicationId 'com.lumidex.track'; minSdk 26; targetSdk 35; versionCode 1; versionName '0.1.0' }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/assets')
+}
+tasks.register('bundleWeb', Copy) {
+    from('../..') { include 'index.html', 'app.js', 'save-sync.js', 'data.json', 'icon.svg', 'sprites/**' }
+    into layout.buildDirectory.dir('generated/assets/www')
+}
+tasks.named('preBuild').configure { dependsOn 'bundleWeb' }

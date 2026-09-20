@@ -1,0 +1,65 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    name: Verify and build APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate web app and data
+        run: |
+          node --check app.js
+          node --test tests/save-sync.test.js
+          node -e "JSON.parse(require('fs').readFileSync('data.json', 'utf8')); console.log('data.json is valid JSON')"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-35 build-tools;35.0.0'
+
+      - name: Run parser tests
+        working-directory: android
+        run: |
+          javac -d /tmp/lumi-parser-tests ../android/app/src/main/java/com/lumidex/track/SaveParser.java ../tests/SaveParserTest.java
+          java -cp /tmp/lumi-parser-tests SaveParserTest
+
+      - name: Build and lint
+        working-directory: android
+        run: ./gradlew assembleDebug lintDebug --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumi-dex-track-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish tagged APK release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: android/app/build/outputs/apk/debug/app-debug.apk

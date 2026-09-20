@@ -26,10 +26,29 @@ const S = {
   dexCaught: LS.get('dexCaught', {}), // pokemon id -> true
   dexShow: 'all',                 // 'all' | 'caught' | 'missing'
   sugPool: LS.get('sugPool', 'now'), // 'now' | 'all'
+  routeOnlyUncaught: LS.get('routeOnlyUncaught', false),
 };
 if (!S.teams) S.teams = [{ name: 'Team 1', slots: [null, null, null, null, null, null] }];
 document.documentElement.classList.toggle('big', S.big);
 
+// Save-derived marks never enter the editable manual progress maps.
+let saveSnapshot = {}, saveCaught = {}, saveForms = {};
+const nativeSave = typeof window.LumiAndroid !== 'undefined';
+function manualCaught(id) { return !!S.dexCaught[id] || Object.keys(S.caught).some(k => k.split('|')[1] === String(id)); }
+function isCaught(id) { return SaveSync.isCaught({ ...S.dexCaught, ...(manualCaught(id) ? { [id]: true } : {}) }, saveCaught, id); }
+function lockAttrs(id) { return saveCaught[id] ? ' disabled aria-label="Caught in save (locked)" title="Caught in save (locked)"' : ''; }
+function refreshSave() {
+  if (!nativeSave) return;
+  try {
+    const next = JSON.parse(window.LumiAndroid.status());
+    const old = JSON.stringify(saveCaught) + JSON.stringify(saveForms), oldStatus = JSON.stringify(saveSnapshot);
+    saveSnapshot = next;
+    saveCaught = SaveSync.normalize(next.caught, D.mons.filter(m => m.base).map(m => m.id));
+    saveForms = SaveSync.normalizeForms(next.forms, D.mons);
+    Object.assign(saveCaught, saveForms);
+    if (D && (old !== JSON.stringify(saveCaught) || (stack.at(-1)?.kind === 'settings' && oldStatus !== JSON.stringify(next)))) render();
+  } catch { /* Keep last verified state if the native bridge is unavailable. */ }
+}
 // ---------- data ----------
 let D, MON, MOVE, BYNO;
 const TYPES = ['Normal', 'Fighting', 'Flying', 'Poison', 'Ground', 'Rock', 'Bug', 'Ghost', 'Steel', 'Fire', 'Water', 'Grass', 'Electric', 'Psychic', 'Ice', 'Dragon', 'Dark', 'Fairy'];
@@ -71,8 +90,10 @@ async function boot() {
   MOVE = new Map(D.moves.map(m => [m.id, m]));
   BYNO = new Map(); for (const m of D.mons) if (m.base) BYNO.set(m.no, m);
   if (S.loc >= D.groups.length) S.loc = 0;
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
+  if (!nativeSave && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
   history.replaceState({ d: 0 }, '');
+  refreshSave();
+  if (nativeSave) setInterval(refreshSave, 2000);
   render();
 }
 
@@ -115,8 +136,8 @@ const spr = (m) => `sprites/${m.img}`;
 const typeChips = (m) => monTypes(m).map(t => `<span class="tp ${t}" style="background:var(--${t})">${t}</span>`).join('');
 const monRow = (m, extra = '', cls = '') => `<div class="row ${cls}" data-mon="${m.id}"><img class="sp" loading="lazy" src="${spr(m)}" alt=""><div class="nm">${h(m.name)}<span class="sub">${typeChips(m)}</span></div>${extra}</div>`;
 MAIN.addEventListener('click', (e) => {
-  const dt = e.target.closest('.tick[data-d]'); if (dt) { e.stopPropagation(); const id = dt.dataset.d; if (S.dexCaught[id]) delete S.dexCaught[id]; else S.dexCaught[id] = true; LS.set('dexCaught', S.dexCaught); dt.classList.toggle('on', !!S.dexCaught[id]); dt.closest('.row')?.classList.toggle('caught', !!S.dexCaught[id]); const c = $('#dexCnt'); if (c) c.textContent = dexCaughtCount(); return; }
-  const tk = e.target.closest('.tick[data-k]'); if (tk) { e.stopPropagation(); const k = tk.dataset.k; if (S.caught[k]) delete S.caught[k]; else { S.caught[k] = true; const id = k.split('|')[1]; if (MON.has(+id)) { S.dexCaught[id] = true; LS.set('dexCaught', S.dexCaught); } } LS.set('caught', S.caught); tk.classList.toggle('on', !!S.caught[k]); tk.closest('.row')?.classList.toggle('caught', !!S.caught[k]); return; }
+  const dt = e.target.closest('.tick[data-d]'); if (dt) { e.stopPropagation(); const id = dt.dataset.d; if (!SaveSync.toggle(S.dexCaught, saveCaught, id)) { toast('Caught in save — locked'); return; } LS.set('dexCaught', S.dexCaught); dt.classList.toggle('on', !!S.dexCaught[id]); dt.closest('.row')?.classList.toggle('caught', !!S.dexCaught[id]); const c = $('#dexCnt'); if (c) c.textContent = dexCaughtCount(); return; }
+  const tk = e.target.closest('.tick[data-k]'); if (tk) { e.stopPropagation(); const k = tk.dataset.k; const id = k.split('|')[1]; if (saveCaught[id]) { toast('Caught in save — locked'); return; } if (manualCaught(id)) { delete S.dexCaught[id]; for (const key of Object.keys(S.caught)) if (key.split('|')[1] === String(id)) delete S.caught[key]; } else if (MON.has(+id)) { S.dexCaught[id] = true; } else { S.caught[k] = true; } LS.set('dexCaught', S.dexCaught); LS.set('caught', S.caught); render(); return; }
   const f = e.target.closest('.fh'); if (f) { f.parentElement.classList.toggle('open'); return; }
   const a = e.target.closest('.abil'); if (a) { a.classList.toggle('open'); return; }
   const r = e.target.closest('[data-mon]'); if (r && r.dataset.mon) { push({ kind: 'mon', id: +r.dataset.mon, tab: 'lv' }); return; }
@@ -134,15 +155,19 @@ function renderRoute() {
   $('#tbSet').onclick = () => push({ kind: 'settings' });
   let html = '';
   if (g.subs.length > 1) html += `<div class="chips">${g.subs.map((s, i) => `<button class="chip${i === S.sub ? ' on' : ''}" data-sub="${i}">${h(shortSub(g.name, s.name))}</button>`).join('')}</div>`;
+  html += `<div class="chips"><button class="chip${S.routeOnlyUncaught ? ' on' : ''}" id="routeUncaught">${S.routeOnlyUncaught ? 'Showing uncaught only' : 'Show only uncaught'}</button></div>`;
   const methods = Object.keys(z.enc).sort((a, b) => (METHOD_ORDER.indexOf(a) + 100) % 100 - (METHOD_ORDER.indexOf(b) + 100) % 100);
   if (!methods.length) html += `<div class="empty">No wild Pokémon here.</div>`;
   for (const m of methods) {
-    html += `<div class="sec">${h(METHOD_LABEL[m] || m)}<span class="cnt">${z.enc[m].length}</span></div>`;
-    for (const e of z.enc[m]) {
+    const encounters = z.enc[m].filter(e => !S.routeOnlyUncaught || !isCaught(e.id ?? e.n));
+    if (!encounters.length) continue;
+    html += `<div class="sec">${h(METHOD_LABEL[m] || m)}<span class="cnt">${encounters.length}</span></div>`;
+    for (const e of encounters) {
       const mon = MON.get(e.id); const k = `${z.z}|${e.id ?? e.n}`;
+      const caught = !!S.caught[k] || isCaught(e.id ?? e.n);
       const lv = e.lo === e.hi ? `Lv ${e.lo}` : `Lv ${e.lo}–${e.hi}`;
-      const rt = `<div class="rt">${h(e.c)}<small>${lv}</small></div><button class="tick${S.caught[k] ? ' on' : ''}" data-k="${k}"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></button>`;
-      html += mon ? monRow(mon, rt, S.caught[k] ? 'caught' : '') : `<div class="row"><div class="sp"></div><div class="nm">${h(e.n)}</div>${rt}</div>`;
+      const rt = `<div class="rt">${h(e.c)}<small>${lv}</small></div><button class="tick${caught ? ' on' : ''}" data-k="${k}"${lockAttrs(e.id ?? e.n)}><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></button>`;
+      html += mon ? monRow(mon, rt, caught ? 'caught' : '') : `<div class="row"><div class="sp"></div><div class="nm">${h(e.n)}</div>${rt}</div>`;
     }
   }
   if (S.showTr && z.tr.length) {
@@ -157,6 +182,7 @@ function renderRoute() {
   $('#lPrev').onclick = () => goLoc(S.loc - 1); $('#lNext').onclick = () => goLoc(S.loc + 1);
   $('#lPick').onclick = () => push({ kind: 'locpick' });
   MAIN.querySelectorAll('[data-sub]').forEach(b => b.onclick = () => { S.sub = +b.dataset.sub; render(); });
+  $('#routeUncaught').onclick = () => { S.routeOnlyUncaught = !S.routeOnlyUncaught; LS.set('routeOnlyUncaught', S.routeOnlyUncaught); render(); };
 }
 function shortSub(g, s) { let x = s.replace(g, '').replace(/^[\s(]+|[)\s]+$/g, ''); return x || s; }
 function goLoc(i) { S.loc = Math.max(0, Math.min(D.groups.length - 1, i)); S.sub = 0; LS.set('loc', S.loc); S.recents = [S.loc, ...S.recents.filter(x => x !== S.loc)].slice(0, 5); LS.set('recents', S.recents); MAIN.scrollTop = 0; render(); }
@@ -189,9 +215,9 @@ function renderDex() {
     if (!m.base && !ql) continue;
     if (ql && !m.name.toLowerCase().includes(ql) && String(m.no) !== ql) continue;
     if (S.dexType && !monTypes(m).includes(S.dexType)) continue;
-    const c = !!S.dexCaught[m.id];
+    const c = isCaught(m.id);
     if (S.dexShow === 'caught' && !c) continue; if (S.dexShow === 'missing' && c) continue;
-    html += monRow(m, `<div class="rt" style="color:var(--dim);font-weight:700;font-size:.8rem">#${String(m.no).padStart(3, '0')}</div><button class="tick${c ? ' on' : ''}" data-d="${m.id}"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></button>`, c ? 'caught' : ''); n++;
+    html += monRow(m, `<div class="rt" style="color:var(--dim);font-weight:700;font-size:.8rem">#${String(m.no).padStart(3, '0')}</div><button class="tick${c ? ' on' : ''}" data-d="${m.id}"${lockAttrs(m.id)}><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></button>`, c ? 'caught' : ''); n++;
   }
   if (!n) html += `<div class="empty">No Pokémon match.</div>`;
   MAIN.innerHTML = html;
@@ -199,7 +225,7 @@ function renderDex() {
   MAIN.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.dexType = b.dataset.t || null; render(); });
   MAIN.querySelectorAll('[data-show]').forEach(b => b.onclick = () => { S.dexShow = b.dataset.show; render(); });
 }
-function dexCaughtCount() { const tot = D.mons.filter(m => m.base).length; const got = D.mons.filter(m => m.base && S.dexCaught[m.id]).length; return `${got} / ${tot} caught`; }
+function dexCaughtCount() { const tot = D.mons.filter(m => m.base).length; const got = D.mons.filter(m => m.base && isCaught(m.id)).length; return `${got} / ${tot} caught`; }
 function statBar(v, color) { return `<div class="bar"><i style="width:${Math.min(100, v / 1.8)}%;background:${color}"></i></div>`; }
 function statColor(v) { return v >= 120 ? '#6ad36a' : v >= 90 ? '#a5d84f' : v >= 60 ? '#f2c94c' : v >= 40 ? '#f2994a' : '#e4514f'; }
 function gender(sex) { if (sex === 255) return 'Genderless'; if (sex === 0) return 'Male only'; if (sex === 254) return 'Female only'; const f = Math.round(sex / 256 * 1000) / 10; return `${(100 - f).toFixed(1).replace('.0', '')}% ♂ / ${f.toFixed(1).replace('.0', '')}% ♀`; }
@@ -207,7 +233,7 @@ function renderMon(o) {
   const m = MON.get(o.id); if (!m) { stack.pop(); return render(); }
   topbar(h(m.name), { back: true });
   const ST = ['HP', 'Attack', 'Defense', 'Sp. Atk', 'Sp. Def', 'Speed'];
-  let html = `<div class="hero"><img src="${spr(m)}" alt=""><div style="flex:1;min-width:0"><div class="no">#${String(m.no).padStart(3, '0')}</div><h2>${h(m.name)}</h2><div>${typeChips(m)}</div><div class="meta">${gender(m.sex)}<br>${m.h} m · ${m.w} kg${m.egg.length ? `<br>Egg: ${h(m.egg.join(', '))}` : ''}${m.items.length ? `<br>Holds: ${h(m.items.join(', '))}` : ''}</div></div><button class="tick${S.dexCaught[m.id] ? ' on' : ''}" data-d="${m.id}" style="width:2.6rem;height:2.6rem;align-self:flex-start"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></button></div>`;
+  let html = `<div class="hero"><img src="${spr(m)}" alt=""><div style="flex:1;min-width:0"><div class="no">#${String(m.no).padStart(3, '0')}</div><h2>${h(m.name)}</h2><div>${typeChips(m)}</div><div class="meta">${gender(m.sex)}<br>${m.h} m · ${m.w} kg${m.egg.length ? `<br>Egg: ${h(m.egg.join(', '))}` : ''}${m.items.length ? `<br>Holds: ${h(m.items.join(', '))}` : ''}</div></div><button class="tick${isCaught(m.id) ? ' on' : ''}" data-d="${m.id}"${lockAttrs(m.id)} style="width:2.6rem;height:2.6rem;align-self:flex-start"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></button></div>`;
   if (m.forms.length > 1) html += `<div class="chips">${m.forms.map(f => { const fm = MON.get(f); return fm ? `<button class="chip${f === m.id ? ' on' : ''}" data-mon="${f}">${h(fm.name)}</button>` : ''; }).join('')}</div>`;
   if (m.dex) html += `<div class="desc">${h(m.dex)}</div>`;
   // stats
@@ -607,21 +633,25 @@ function renderSettings() {
   topbar('Settings', { back: true });
   const caught = Object.keys(S.caught).length;
   MAIN.innerHTML = `<div class="set">
+    <div class="r"><div><b>Eden save folder</b><small>${nativeSave ? h(saveSnapshot.status || 'Choose the folder containing SaveData.bin') : 'Automatic save sync is available in the Android APK.'}</small>${nativeSave ? `<small>${h(saveSnapshot.folder || 'In the folder picker, open Eden from the sidebar and browse to your game save.')}</small><small>Read-only · checks every 5 seconds · save catches are locked</small>` : ''}</div>${nativeSave ? '<button class="btn" id="stSaveFolder">Choose folder</button>' : ''}</div>
+    ${nativeSave ? `<div class="r"><div><b>Save monitoring</b><small>${Object.keys(saveCaught).length} synced catches · ${saveSnapshot.lastSync ? 'Last read ' + h(new Date(saveSnapshot.lastSync).toLocaleString()) : 'No successful sync yet'}</small></div><button class="btn" id="stSaveMonitor">${saveSnapshot.monitoring ? 'Pause' : 'Start'}</button></div>` : ''}
     <div class="r"><div><b>Larger text</b><small>Bumps everything up a size</small></div><button class="btn${S.big ? ' gold' : ''}" id="stBig">${S.big ? 'On' : 'Off'}</button></div>
     <div class="r"><div><b>Trainers on route pages</b><small>Every trainer and their team</small></div><button class="btn${S.showTr ? ' gold' : ''}" id="stTr">${S.showTr ? 'On' : 'Off'}</button></div>
     <div class="r"><div><b>Items on route pages</b><small>Ground and hidden items</small></div><button class="btn${S.showIt ? ' gold' : ''}" id="stIt">${S.showIt ? 'On' : 'Off'}</button></div>
-    <div class="r"><div><b>Cache all sprites</b><small>~11 MB so every picture works offline</small></div><button class="btn" id="stCache">Download</button></div>
+    ${nativeSave ? '' : `<div class="r"><div><b>Cache all sprites</b><small>~11 MB so every picture works offline</small></div><button class="btn" id="stCache">Download</button></div>`}
     <div class="r"><div><b>Clear boss checklist</b><small>${Object.keys(S.beaten).length} beaten right now</small></div><button class="btn red" id="stClrB">Clear</button></div>
-    <div class="r"><div><b>Clear Pokédex caught marks</b><small>${Object.keys(S.dexCaught).length} marked</small></div><button class="btn red" id="stClrD">Clear</button></div>
+    <div class="r"><div><b>Clear manual Pokédex marks</b><small>${Object.keys(S.dexCaught).length} marked</small></div><button class="btn red" id="stClrD">Clear</button></div>
     <div class="r"><div><b>Clear route ticks</b><small>${caught} ticked right now</small></div><button class="btn red" id="stClr">Clear</button></div>
     <div class="legend" style="padding-top:1rem">Data: ${h(D.version)}, from luminescent.team. Sprites © Nintendo / Game Freak.</div></div>`;
+  $('#stSaveFolder')?.addEventListener('click', () => window.LumiAndroid.chooseFolder());
+  $('#stSaveMonitor')?.addEventListener('click', () => { if (saveSnapshot.monitoring) window.LumiAndroid.stopMonitoring(); else window.LumiAndroid.startMonitoring(); setTimeout(refreshSave, 300); });
   $('#stBig').onclick = () => { S.big = !S.big; LS.set('big', S.big); document.documentElement.classList.toggle('big', S.big); render(); };
   $('#stTr').onclick = () => { S.showTr = !S.showTr; LS.set('showTr', S.showTr); render(); };
   $('#stIt').onclick = () => { S.showIt = !S.showIt; LS.set('showIt', S.showIt); render(); };
   $('#stClrB').onclick = () => { if (confirm('Clear the boss checklist?')) { S.beaten = {}; LS.set('beaten', S.beaten); render(); } };
-  $('#stClrD').onclick = () => { if (confirm('Clear all Pokédex caught marks?')) { S.dexCaught = {}; LS.set('dexCaught', S.dexCaught); render(); } };
+  $('#stClrD').onclick = () => { if (confirm('Clear manual Pokédex marks? Save-derived catches stay locked.')) { S.dexCaught = {}; LS.set('dexCaught', S.dexCaught); render(); } };
   $('#stClr').onclick = () => { if (confirm(`Clear all ${caught} caught ticks?`)) { S.caught = {}; LS.set('caught', S.caught); render(); } };
-  $('#stCache').onclick = async (e) => {
+  if ($('#stCache')) $('#stCache').onclick = async (e) => {
     e.target.textContent = '0%'; const urls = D.mons.map(m => spr(m)); let done = 0;
     try { const c = await caches.open('lumi-sprites'); for (let i = 0; i < urls.length; i += 12) { await Promise.all(urls.slice(i, i + 12).map(u => c.add(u).catch(() => { }))); done = Math.min(urls.length, i + 12); e.target.textContent = Math.round(done / urls.length * 100) + '%'; } e.target.textContent = 'Done'; toast('Sprites cached'); }
     catch { e.target.textContent = 'Failed'; }

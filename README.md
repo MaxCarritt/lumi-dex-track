@@ -1,38 +1,49 @@
-**Install:** grab `Lumi-Dex.apk` from the [latest release](https://github.com/soonerbutte-rockybeers/lumi-dex/releases/latest) and install it like any sideloaded app. Or open https://soonerbutte-rockybeers.github.io/lumi-dex/ in Chrome and choose "Add to Home screen" — same app, no APK needed. Either way, once it's open: gear icon → "Cache all sprites" so pictures load without a connection.
+# Lumi Dex Track
 
-Everything now in update 1.2.0! 
+Lumi Dex Track is an offline Pokédex and progress tracker for Pokémon Luminescent Platinum. It is a small web app that can also be built as an Android APK.
 
-Route Tracker
+This project is based on [Lumi Dex](https://github.com/soonerbutte-rockybeers/lumi-dex) by soonerbutte-rockybeers. This fork adds Android packaging, Eden save synchronization, exact form detection, and reproducible build tooling.
 
-80 locations in story order with prev/next buttons, searchable picker with recents; sub-areas (floors, north/south, cave sections) as tabs
-Every wild encounter grouped by method — grass, morning/day/night, Poké Radar, swarm, incense, honey tree, surfing, each rod, statics, gifts, starters, trades, legendaries, daily spawns — with rate and level range
-Every trainer on the route with their full team and levels; ground and hidden items
-Tick Pokémon as you catch them (also marks the Dex)
-Dex
+The Android version adds an Eden save-folder connection. It reads the selected save file, marks Pokémon found in the save as caught, and locks those marks so they cannot be removed in the app. It reads the save without modifying it.
 
-513 Pokémon plus all forms: types, gender ratio, size, egg groups, held items, dex text, base stats, abilities with descriptions, type matchups, evolution chain (tap to jump), every location with rates, Level/TM/Egg/Tutor moves
-Search by name or number, filter by type
-Caught tick on every row and detail page; N / 513 counter; All / Caught / Missing filter
-Bosses
+## Use the app
 
-40 fights in story order: rival, eight gyms (each with all four possible teams), every Galactic commander and Cyrus fight, mid-game Elite Four, the League, post-game fights, Lv 100 rematches
-Each fight's full roster: sprites, levels, types, abilities, moves, held items
-Checklist; the next unticked fight is your progress marker
-Team
+- **Android APK:** download the APK from the [latest release](https://github.com/MaxCarritt/lumi-dex-track/releases/latest) and install it as a sideloaded app. Android setup and Eden instructions are in [`android/README.md`](android/README.md).
+- **Web app:** open the [web version](https://maxcarritt.github.io/lumi-dex-track/) in Chrome and choose “Add to Home screen.”
 
-Multiple named teams, six slots, ability and four moves from each Pokémon's real learnset
-Team grade: 1–5 stars plus a 0–100 score against the fights still ahead — super-effective coverage, safe switch-ins, holes, roster size
-"Why this grade": each member's contribution, weakest link flagged, best catchable swap with the score change
-Per-fight strip showing how the team fares against each remaining boss, colored green/amber/red
-Defensive grid (what hits the team) and offensive grid (what your moves hit)
-Recommended movesets per member and "fill for everyone," favoring level-up moves by the next boss's level
-Suggestions: top 8 additions scored against team gaps and the next boss, filtered to what's catchable before that fight (evolution levels and stone/rock availability respected), with a reason and where to catch it
-Moves
+The web app stores manual progress in browser storage. Save-file syncing is available in the Android build.
 
-All 826 moves with type, category, power, accuracy, PP, description, and everything that learns each one
-General
+## What it includes
 
-Fully offline, everything bundled in the APK; web version at the same URL
-Sized for the Thor's 1080×1240 bottom screen; large-text toggle
-Trainers/items toggles; clears for each kind of progress
-Data: Luminescent 2.2F from Team Luminescent's own site data
+- Route tracker covering 80 locations, encounters, trainers and items.
+- Pokédex entries for 513 species plus alternate forms, with locations, stats, abilities, moves and evolution chains.
+- Boss checklist covering the story and post-game fights.
+- Team builder with learnsets, matchup grids, recommendations and team grading.
+- Move database covering all 826 moves.
+- Offline bundled data and sprites, with an option to cache sprites in the web version.
+
+## Eden save sync
+
+In the Android app, open Settings → Eden save folder → Choose folder. Select the Eden folder that directly contains `SaveData.bin`.
+
+The app checks the save every five seconds while monitoring is enabled. It requires two identical reads before accepting a change, which avoids most partial-save reads. Species-level Pokédex flags preserve historical catches. Valid Pokémon records also provide exact forms, including regional forms and Burmy cloaks.
+
+The current parser supports Luminescent revision 1 saves and standard BDSP save revisions documented in [`android/README.md`](android/README.md). The supplied sample save decodes to 72 caught species. Luminescent’s save checksum differs from standard BDSP, so the Android monitor validates complete repeated reads and individual Pokémon record checksums instead of rejecting the save on the vanilla checksum alone.
+
+## Build the Android APK
+
+The Android project is in [`android/`](android/). It bundles the existing app, data and sprites into a native Android shell and adds the save-folder monitor.
+
+Requirements are JDK 17 and Android SDK Platform 35 / Build Tools 35.0.0. From the `android` directory:
+
+```sh
+./gradlew assembleDebug lintDebug
+```
+
+The APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. Full setup, testing and signing notes are in [`android/README.md`](android/README.md).
+
+GitHub Actions runs the JavaScript, parser and data checks, Android lint, and APK build on pull requests and pushes to `main`. A `v*` tag also publishes the debug APK to a GitHub Release. The workflow is in [`.github/workflows/android.yml`](.github/workflows/android.yml).
+
+## Data
+
+The app data is based on Luminescent 2.2F data from Team Luminescent’s site. Pokémon sprites and game names are the property of their respective rights holders.
