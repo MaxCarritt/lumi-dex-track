@@ -47,7 +47,7 @@ jobs:
 
       - name: Build and lint
         working-directory: android
-        run: ./gradlew assembleDebug lintDebug --no-daemon
+        run: ./gradlew clean compileDebugJavaWithJavac lintDebug assembleDebug --no-daemon
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

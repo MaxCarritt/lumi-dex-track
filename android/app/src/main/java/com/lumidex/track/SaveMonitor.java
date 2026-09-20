@@ -90,7 +90,7 @@ public class SaveMonitor extends Service {
             JSONArray forms = new JSONArray();
             for (int[] pair : parsed.forms) forms.put(new JSONArray(pair));
             snapshot.put("forms", forms).put("status", status).put("folder", folder).put("monitoring", true);
-            if (success) snapshot.put("lastSync", System.currentTimeMillis());
+            snapshot.put("lastSync", System.currentTimeMillis());
             prefs.edit().putString("snapshot", snapshot.toString()).apply();
         } catch (JSONException ignored) { }
     }
