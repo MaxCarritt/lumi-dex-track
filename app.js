@@ -128,7 +128,7 @@ function render() {
 function topbar(title, { back = false, right = '', tap = false } = {}) {
   TOP.innerHTML = (back ? `<button class="ib" id="tbBack"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>` : '')
     + `<div class="ttl${tap ? ' tap' : ''}" id="tbTitle">${title}</div>` + right
-    + `<button class="ib" id="tbSet" title="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></button>`;
+    + `<button class="ib" id="tbSet" title="Settings"><svg viewBox="0 0 24 24"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Zm8.1 3.1-1.8-.3a6.8 6.8 0 0 0-.7-1.6l1.1-1.5-1.8-1.8-1.5 1.1a6.8 6.8 0 0 0-1.6-.7l-.3-1.8h-2.6l-.3 1.8a6.8 6.8 0 0 0-1.6.7L7.6 6.1 5.8 7.9l1.1 1.5a6.8 6.8 0 0 0-.7 1.6l-1.8.3v2.6l1.8.3a6.8 6.8 0 0 0 .7 1.6l-1.1 1.5 1.8 1.8 1.5-1.1a6.8 6.8 0 0 0 1.6.7l.3 1.8h2.6l.3-1.8a6.8 6.8 0 0 0 1.6-.7l1.5 1.1 1.8-1.8-1.1-1.5a6.8 6.8 0 0 0 .7-1.6l1.8-.3v-2.6Z"/></svg></button>`;
   $('#tbBack')?.addEventListener('click', pop);
   $('#tbSet').addEventListener('click', () => push({ kind: 'settings' }));
 }
@@ -151,7 +151,7 @@ function renderRoute() {
   TOP.innerHTML = `<button class="ib" id="lPrev" ${S.loc === 0 ? 'disabled' : ''}><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
     <button class="ttl tap cur" id="lPick"><b>${h(g.name)}</b><small>${S.loc + 1} of ${D.groups.length}</small></button>
     <button class="ib" id="lNext" ${S.loc === D.groups.length - 1 ? 'disabled' : ''}><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
-    <button class="ib" id="tbSet"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></button>`;
+    <button class="ib" id="tbSet"><svg viewBox="0 0 24 24"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Zm8.1 3.1-1.8-.3a6.8 6.8 0 0 0-.7-1.6l1.1-1.5-1.8-1.8-1.5 1.1a6.8 6.8 0 0 0-1.6-.7l-.3-1.8h-2.6l-.3 1.8a6.8 6.8 0 0 0-1.6.7L7.6 6.1 5.8 7.9l1.1 1.5a6.8 6.8 0 0 0-.7 1.6l-1.8.3v2.6l1.8.3a6.8 6.8 0 0 0 .7 1.6l-1.1 1.5 1.8 1.8 1.5-1.1a6.8 6.8 0 0 0 1.6.7l.3 1.8h2.6l.3-1.8a6.8 6.8 0 0 0 1.6-.7l1.5 1.1 1.8-1.8-1.1-1.5a6.8 6.8 0 0 0 .7-1.6l1.8-.3v-2.6Z"/></svg></button>`;
   $('#tbSet').onclick = () => push({ kind: 'settings' });
   let html = '';
   if (g.subs.length > 1) html += `<div class="chips">${g.subs.map((s, i) => `<button class="chip${i === S.sub ? ' on' : ''}" data-sub="${i}">${h(shortSub(g.name, s.name))}</button>`).join('')}</div>`;
