@@ -2,7 +2,17 @@ plugins { id 'com.android.application' }
 android {
     namespace 'com.lumidex.track'
     compileSdk 35
-    defaultConfig { applicationId 'com.lumidex.track'; minSdk 26; targetSdk 35; versionCode 1; versionName '0.1.0' }
+    // Tagged CI builds provide VERSION_NAME and VERSION_CODE. Local/branch builds
+    // retain a clearly identifiable development version.
+    def buildVersionName = System.getenv('VERSION_NAME') ?: '0.0.0-dev'
+    def buildVersionCode = (System.getenv('VERSION_CODE') ?: '1').toInteger()
+    defaultConfig {
+        applicationId 'com.lumidex.track'
+        minSdk 26
+        targetSdk 35
+        versionCode buildVersionCode
+        versionName buildVersionName
+    }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/assets')
 }

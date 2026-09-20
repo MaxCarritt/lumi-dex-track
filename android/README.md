@@ -18,6 +18,10 @@ Windows: use `gradlew.bat`. Gradle 8.11.1 and Android Gradle Plugin 8.9.2 are pi
 
 Install `app/build/outputs/apk/debug/app-debug.apk`. For distribution, use Android Studio's Generate Signed Bundle / APK action and retain your own signing key for future updates. Never commit signing keys. The upstream signing key is not required for this separate app.
 
+## Releases
+
+Push a semantic version tag such as `v1.2.3`. GitHub Actions uses the tag as the Android `versionName` and converts it to `versionCode` (`1*10000 + 2*100 + 3 = 10203`), then builds and attaches the APK to the release. Untagged development builds use `0.0.0-dev`.
+
 ## Connect Eden
 
 1. Save in-game in Luminescent Platinum.
