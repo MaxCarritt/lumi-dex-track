@@ -155,7 +155,7 @@ function renderRoute() {
   $('#tbSet').onclick = () => push({ kind: 'settings' });
   let html = '';
   if (g.subs.length > 1) html += `<div class="chips">${g.subs.map((s, i) => `<button class="chip${i === S.sub ? ' on' : ''}" data-sub="${i}">${h(shortSub(g.name, s.name))}</button>`).join('')}</div>`;
-  html += `<div class="chips"><button class="chip${S.routeOnlyUncaught ? ' on' : ''}" id="routeUncaught">${S.routeOnlyUncaught ? 'Showing uncaught only' : 'Show only uncaught'}</button></div>`;
+  html += `<div class="route-filter"><label class="switch"><input type="checkbox" id="routeUncaught"${S.routeOnlyUncaught ? ' checked' : ''}><span class="slider"></span><span>Show only uncaught</span></label></div>`;
   const methods = Object.keys(z.enc).sort((a, b) => (METHOD_ORDER.indexOf(a) + 100) % 100 - (METHOD_ORDER.indexOf(b) + 100) % 100);
   if (!methods.length) html += `<div class="empty">No wild Pokémon here.</div>`;
   for (const m of methods) {
@@ -182,7 +182,7 @@ function renderRoute() {
   $('#lPrev').onclick = () => goLoc(S.loc - 1); $('#lNext').onclick = () => goLoc(S.loc + 1);
   $('#lPick').onclick = () => push({ kind: 'locpick' });
   MAIN.querySelectorAll('[data-sub]').forEach(b => b.onclick = () => { S.sub = +b.dataset.sub; render(); });
-  $('#routeUncaught').onclick = () => { S.routeOnlyUncaught = !S.routeOnlyUncaught; LS.set('routeOnlyUncaught', S.routeOnlyUncaught); render(); };
+  $('#routeUncaught').onchange = e => { S.routeOnlyUncaught = e.target.checked; LS.set('routeOnlyUncaught', S.routeOnlyUncaught); render(); };
 }
 function shortSub(g, s) { let x = s.replace(g, '').replace(/^[\s(]+|[)\s]+$/g, ''); return x || s; }
 function goLoc(i) { S.loc = Math.max(0, Math.min(D.groups.length - 1, i)); S.sub = 0; LS.set('loc', S.loc); S.recents = [S.loc, ...S.recents.filter(x => x !== S.loc)].slice(0, 5); LS.set('recents', S.recents); MAIN.scrollTop = 0; render(); }
@@ -222,6 +222,7 @@ function renderDex() {
   if (!n) html += `<div class="empty">No Pokémon match.</div>`;
   MAIN.innerHTML = html;
   const inp = $('#dxQ'); inp.oninput = () => { S.dexQ = inp.value; const st = MAIN.scrollTop; render(); $('#dxQ').focus(); const v = $('#dxQ'); v.setSelectionRange(v.value.length, v.value.length); MAIN.scrollTop = st; };
+  inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } };
   MAIN.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.dexType = b.dataset.t || null; render(); });
   MAIN.querySelectorAll('[data-show]').forEach(b => b.onclick = () => { S.dexShow = b.dataset.show; render(); });
 }
