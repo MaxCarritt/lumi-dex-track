@@ -28,14 +28,12 @@ public class SaveMonitor extends Service {
     }
     @Override public int onStartCommand(Intent intent, int flags, int id) { return START_NOT_STICKY; }
     @Override public IBinder onBind(Intent intent) { return null; }
-    private void publish(JSONArray caught, String status, String folder, boolean success) {
+    private void publishStatus(String status, String folder) {
         if (stopped) return;
         try {
             SharedPreferences prefs = getSharedPreferences("save", 0);
             JSONObject snapshot = new JSONObject(prefs.getString("snapshot", "{}"));
-            if (caught != null) snapshot.put("caught", caught);
             snapshot.put("status", status).put("folder", folder).put("monitoring", true);
-            if (success) snapshot.put("lastSync", System.currentTimeMillis());
             prefs.edit().putString("snapshot", snapshot.toString()).apply();
         } catch (JSONException ignored) { }
     }
@@ -72,19 +70,19 @@ public class SaveMonitor extends Service {
             SaveParser.Result parsed = SaveParser.parseResult(bytes);
             if (!Arrays.equals(previousRead, bytes)) {
                 previousRead = bytes;
-                publish(null, "Waiting for a stable save (two matching reads)", folder, false);
+                publishStatus("Waiting for a stable save (two matching reads)", folder);
                 return;
             }
             String status = SaveParser.isLuminescent(bytes) ? "Connected · Luminescent species synced; individual forms stay manual" : "Connected · BDSP species synced; individual forms stay manual";
             if (SaveParser.isLuminescent(bytes) && !SaveParser.hasValidChecksum(bytes)) status += " · stable read, checksum unverified";
-            publish(parsed, status, folder, true);
+            publishResult(parsed, status, folder);
         } catch (Exception e) {
             previousRead = null;
-            publish(null, e instanceof SecurityException ? "Folder permission lost. Choose the save folder again." : Objects.toString(e.getMessage(), "Unable to read save; retrying."), folder, false);
+            publishStatus(e instanceof SecurityException ? "Folder permission lost. Choose the save folder again." : Objects.toString(e.getMessage(), "Unable to read save; retrying."), folder);
         }
     }
 
-    private void publish(SaveParser.Result parsed, String status, String folder, boolean success) {
+    private void publishResult(SaveParser.Result parsed, String status, String folder) {
         try {
             SharedPreferences prefs = getSharedPreferences("save", 0);
             JSONObject snapshot = new JSONObject(prefs.getString("snapshot", "{}"));
