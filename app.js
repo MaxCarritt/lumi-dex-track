@@ -33,6 +33,7 @@ document.documentElement.classList.toggle('big', S.big);
 
 // Save-derived marks never enter the editable manual progress maps.
 let saveSnapshot = {}, saveCaught = {}, saveForms = {};
+let deferredSaveRender = false;
 const nativeSave = typeof window.LumiAndroid !== 'undefined';
 function manualCaught(id) { return !!S.dexCaught[id] || Object.keys(S.caught).some(k => k.split('|')[1] === String(id)); }
 function isCaught(id) { return SaveSync.isCaught({ ...S.dexCaught, ...(manualCaught(id) ? { [id]: true } : {}) }, saveCaught, id); }
@@ -46,7 +47,33 @@ function refreshSave() {
     saveCaught = SaveSync.normalize(next.caught, D.mons.filter(m => m.base).map(m => m.id));
     saveForms = SaveSync.normalizeForms(next.forms, D.mons);
     Object.assign(saveCaught, saveForms);
-    if (D && (old !== JSON.stringify(saveCaught) || (stack.at(-1)?.kind === 'settings' && oldStatus !== JSON.stringify(next)))) render();
+    if (D && (old !== JSON.stringify(saveCaught) || (stack.at(-1)?.kind === 'settings' && oldStatus !== JSON.stringify(next)))) {
+      // Save polling must not steal the keyboard or reset a detail page while
+      // the user is typing/scrolling. Capture the current UI position before
+      // rebuilding the affected view, then restore it after the render.
+      const scroll = MAIN.scrollTop;
+      const active = document.activeElement;
+      const activeId = active?.id;
+      if (activeId === 'dxQ' || activeId === 'mvQ') {
+        // Replacing a focused input dismisses Android's IME. Defer the visual
+        // refresh until the user leaves the search field.
+        deferredSaveRender = true;
+        return;
+      }
+      const selection = active && typeof active.selectionStart === 'number'
+        ? [active.selectionStart, active.selectionEnd] : null;
+      const detail = stack.at(-1);
+      if (detail && (detail.kind === 'mon' || detail.kind === 'move' || detail.kind === 'boss')) detail.scroll = scroll;
+      render();
+      MAIN.scrollTop = scroll;
+      if (activeId) {
+        const replacement = document.getElementById(activeId);
+        if (replacement) {
+          replacement.focus({ preventScroll: true });
+          if (selection && typeof replacement.setSelectionRange === 'function') replacement.setSelectionRange(selection[0], selection[1]);
+        }
+      }
+    }
   } catch { /* Keep last verified state if the native bridge is unavailable. */ }
 }
 // ---------- data ----------
@@ -221,7 +248,7 @@ function renderDex() {
   }
   if (!n) html += `<div class="empty">No Pokémon match.</div>`;
   MAIN.innerHTML = html;
-  const inp = $('#dxQ'); inp.oninput = () => { S.dexQ = inp.value; const st = MAIN.scrollTop; render(); $('#dxQ').focus(); const v = $('#dxQ'); v.setSelectionRange(v.value.length, v.value.length); MAIN.scrollTop = st; };
+  const inp = $('#dxQ'); inp.oninput = () => { S.dexQ = inp.value; const st = MAIN.scrollTop; render(); $('#dxQ').focus(); const v = $('#dxQ'); v.setSelectionRange(v.value.length, v.value.length); MAIN.scrollTop = st; }; inp.onblur = () => { if (deferredSaveRender) { deferredSaveRender = false; render(); } };
   inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } };
   MAIN.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.dexType = b.dataset.t || null; render(); });
   MAIN.querySelectorAll('[data-show]').forEach(b => b.onclick = () => { S.dexShow = b.dataset.show; render(); });
@@ -292,7 +319,7 @@ function renderMoves() {
   }
   if (!n) html += `<div class="empty">No moves match.</div>`;
   MAIN.innerHTML = html;
-  const inp = $('#mvQ'); inp.oninput = () => { S.mvQ = inp.value; render(); $('#mvQ').focus(); const v = $('#mvQ'); v.setSelectionRange(v.value.length, v.value.length); };
+  const inp = $('#mvQ'); inp.oninput = () => { S.mvQ = inp.value; render(); $('#mvQ').focus(); const v = $('#mvQ'); v.setSelectionRange(v.value.length, v.value.length); }; inp.onblur = () => { if (deferredSaveRender) { deferredSaveRender = false; render(); } };
   MAIN.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { S.mvType = b.dataset.t || null; render(); });
   MAIN.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { S.mvCat = b.dataset.c === '' ? null : +b.dataset.c; render(); });
 }
