@@ -24,7 +24,14 @@ The web app stores manual progress in browser storage. Save-file syncing is avai
 
 ## Eden save sync
 
-In the Android app, open Settings → Eden save folder → Choose folder. Select the Eden folder that directly contains `SaveData.bin`.
+In the Android app, open Settings → Eden save folder → Choose folder. For Luminescent Platinum, find title ID `0100000011D90000` under Eden's save directory and select the folder that directly contains `SaveData.bin`:
+
+```text
+Android/data/dev.eden.eden_emulator/files/nand/user/save/
+└── 0000000000000000/
+    └── <your profile ID>/
+        └── 0100000011D90000/
+```
 
 The app checks the save every five seconds while monitoring is enabled. It requires two identical reads before accepting a change, which avoids most partial-save reads. Species-level Pokédex flags preserve historical catches. Valid Pokémon records also provide exact forms, including regional forms and Burmy cloaks.
 

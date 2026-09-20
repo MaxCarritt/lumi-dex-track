@@ -22,7 +22,16 @@ Install `app/build/outputs/apk/debug/app-debug.apk`. For distribution, use Andro
 
 1. Save in-game in Luminescent Platinum.
 2. In Lumi Dex Track, open Settings → Eden save folder → Choose folder.
-3. Open **Eden** in the Android system picker's sidebar (its document provider), then browse to the game's save folder, typically under `nand/user/save/0000000000000000/<profile>/<title>/`. Select the folder directly containing **SaveData.bin**, not the whole NAND, an exported ZIP or a save-state folder.
+3. Open **Eden** in the Android system picker's sidebar (its document provider), then browse to Luminescent Platinum's game folder, identified by title ID `0100000011D90000`:
+
+   ```text
+   Android/data/dev.eden.eden_emulator/files/nand/user/save/
+   └── 0000000000000000/
+       └── <your profile ID>/
+           └── 0100000011D90000/
+   ```
+
+   Select the folder directly containing **SaveData.bin**, not the whole NAND, an exported ZIP or a save-state folder.
 4. Grant folder access. The app reads the file every five seconds, including while Eden is foregrounded, using an ongoing notification. No write permission is requested and no save file is modified.
 5. Settings shows status and the last successful read. Pause stops the service; Start resumes it. Last verified catches stay locked while paused or if reading fails. Restart monitoring after force-stop/reboot; Android may also stop services under resource pressure.
 
