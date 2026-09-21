@@ -3,4 +3,5 @@ android/**/build/
 android/local.properties
 *.jks
 *.keystore
+.signing/
 example_save/0100000011D90000/*
