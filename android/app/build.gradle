@@ -14,6 +14,26 @@ android {
         versionName buildVersionName
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    signingConfigs {
+        release {
+            def keyPath = System.getenv('ANDROID_KEYSTORE_PATH')
+            if (keyPath) {
+                storeFile file(keyPath)
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        debug {
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-debug'
+        }
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
     sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/assets')
 }
 tasks.register('bundleWeb', Copy) {

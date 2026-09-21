@@ -49,7 +49,7 @@ Requirements are JDK 17 and Android SDK Platform 35 / Build Tools 35.0.0. From t
 
 The APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. Full setup, testing and signing notes are in [`android/README.md`](android/README.md).
 
-GitHub Actions runs the JavaScript, parser and data checks, Android lint, and APK build on pull requests and pushes to `main`. A `v*` tag also publishes the debug APK to a GitHub Release. The workflow is in [`.github/workflows/android.yml`](.github/workflows/android.yml).
+GitHub Actions runs the JavaScript, parser and data checks, Android lint, and APK build on pull requests and pushes to `main`. A `v*` tag publishes a signed release APK using the persistent signing secrets described in [`android/README.md`](android/README.md). Debug builds install separately from releases. The workflow is in [`.github/workflows/android.yml`](.github/workflows/android.yml).
 
 ## Data
 

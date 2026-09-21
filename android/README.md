@@ -12,15 +12,30 @@ From this directory:
 ./gradlew assembleDebug lintDebug
 ```
 
-Every push and pull request also runs this verification in GitHub Actions. The workflow validates JavaScript and JSON, runs the save parser tests, runs Android lint, builds the debug APK, and stores the APK as a 30-day workflow artifact. Tags matching `v*` additionally publish that APK to a GitHub Release. It is a reproducible debug/sideload build; release signing is intentionally not configured until a signing key is added to repository secrets.
+Every push and pull request also runs this verification in GitHub Actions. The workflow validates JavaScript and JSON, runs the save parser tests, runs Android lint, builds the debug APK, and stores the APK as a 30-day workflow artifact. Tags matching `v*` build and publish a signed release APK instead. Release builds require the persistent signing secrets below; missing secrets fail the build rather than publishing an APK with a temporary signing key.
 
 Windows: use `gradlew.bat`. Gradle 8.11.1 and Android Gradle Plugin 8.9.2 are pinned. The first build requires internet access. The build copies the web assets automatically; do not edit generated assets.
 
-Install `app/build/outputs/apk/debug/app-debug.apk`. For distribution, use Android Studio's Generate Signed Bundle / APK action and retain your own signing key for future updates. Never commit signing keys. The upstream signing key is not required for this separate app.
+Install `app/build/outputs/apk/debug/app-debug.apk` for development. Debug builds use `com.lumidex.track.debug` so they install separately from the release app (`com.lumidex.track`). CI debug artifacts are disposable and are not guaranteed to update one another. Never commit signing keys. The upstream signing key is not required for this separate app.
 
 ## Releases
 
 Push a semantic version tag such as `v1.2.3`. GitHub Actions uses the tag as the Android `versionName` and converts it to `versionCode` (`1*10000 + 2*100 + 3 = 10203`), then builds and attaches the APK to the release. Untagged development builds use `0.0.0-dev`.
+
+Before tagging, configure these GitHub Actions repository secrets:
+
+- `ANDROID_KEYSTORE_BASE64`: Base64 encoding of your permanent release keystore.
+- `ANDROID_KEYSTORE_PASSWORD`: Keystore password.
+- `ANDROID_KEY_ALIAS`: Signing key alias in the keystore.
+- `ANDROID_KEY_PASSWORD`: Signing key password.
+
+Use Android Studio's Generate Signed Bundle / APK dialog to create a key if no existing distribution key is available. Back up the key and passwords securely and reuse them for every release. The workflow restores the key only for tagged builds, verifies the APK signature, and removes the temporary keystore afterward. For local signed builds, set `ANDROID_KEYSTORE_PATH` to the keystore's absolute path plus the three password/alias environment variables, then run `./gradlew assembleRelease lintRelease`.
+
+### Migrating from the old APKs
+
+Previous releases were debug APKs signed with a fresh runner's debug key. Android rejects an update signed by a different key, even when the app name and package ID match. If the exact key used for your installed APK is available, configure that key above to preserve update compatibility. The APK alone cannot recover the private signing key.
+
+If that old key was not retained, moving to the permanent release key requires a one-time uninstall/reinstall. Uninstalling deletes this app's local progress and folder permissions, so preserve any manual progress first. The selected emulator save is not deleted by uninstalling this companion app. Reconnect the save folder after installing. Subsequent releases signed with the same permanent key and a higher version code can update in place.
 
 ## Connect Eden
 

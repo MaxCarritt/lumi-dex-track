@@ -12,9 +12,10 @@ public class MainActivity extends Activity {
     private static final String ORIGIN = "https://app.lumidex.local/";
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        hideSystemBars();
         web = new WebView(this);
         setContentView(web);
+        // Window inset controls require the decor created by setContentView.
+        hideSystemBars();
         if (Build.VERSION.SDK_INT >= 30) {
             web.setOnApplyWindowInsetsListener((view, insets) -> {
                 android.graphics.Insets bars = insets.getInsets(android.view.WindowInsets.Type.systemBars() | android.view.WindowInsets.Type.displayCutout());
